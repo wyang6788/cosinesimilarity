@@ -12,6 +12,7 @@ public class MongoConnection {
 	public HashSet<Review> reviews;
 	public Review randomReview;
 	public HashMap<String, Double> idf;
+	public Review query;
 	
 	public MongoConnection(){
 		this.connection = new BaseConnection();
@@ -20,35 +21,22 @@ public class MongoConnection {
 	}
 	public void getCosineSimilarity() throws IOException{		
 		connection.connect();
-		getReviews();
-		getIDF();
-		getTFIDF();
-		compareCosSimilarity();
+		setGlobalIDF();
+		setReviews();
+		compareCosSimilarityQ();
 		connection.close();
 	}
 	
-	public void getReviews(){
+	public void setReviews(){
 		int firstSix = 0;
-		String[] terms;
 		connection.setDBAndCollection("cs336", "unlabel_review");
 		DBCursor nosplit = connection.showRecords();
 		
 		while(nosplit.hasNext() && firstSix < 6){
 			DBObject nosplitDBO = nosplit.next();
 			Review review = new Review((String) nosplitDBO.get("id"), (String) nosplitDBO.get("review"));
-			terms = review.review.split("\\W+");
-			for(String term : terms){
-				term = term.toLowerCase();
-				if(!review.tf.containsKey(term)){
-					review.tf.put(term, 1.0);
-				}
-				else{
-					review.tf.put(term, 1 + review.tf.get(term));
-				}
-			}
-			for(String term : review.tf.keySet()){
-				review.tf.put(term, 1 + Math.log10(review.tf.get(term)));
-			}
+			review.setTF();
+			review.setTFIDF(idf);
 			reviews.add(review);
 			firstSix++;
 		}
@@ -57,18 +45,26 @@ public class MongoConnection {
 			randomReview = review;
 			break;
 		}
+
 	}
 	
-	public void getIDF(){
+	public void setQuery(){
+		String text = randomReview.review;
+		String[] terms = text.split("\\W+");
+		query = new Review("420", terms[2] + " " + terms[3]);
+		query.setTF();
+		query.setTFIDF(idf);
+	}
+	
+	public void setGlobalIDF(){
 		int numReviews = 0;
-		String[] terms;
 		connection.setDBAndCollection("cs336", "unlabel_review");
 		DBCursor nosplit = connection.showRecords();
 		
 		while(nosplit.hasNext()){
 			DBObject nosplitDBO = nosplit.next();
 			String review = (String) nosplitDBO.get("review");
-			terms = review.split("\\W+");
+			String[] terms = review.split("\\W+");
 			for(String term : terms){
 				term = term.toLowerCase();
 				if(!idf.containsKey(term)){
@@ -88,17 +84,7 @@ public class MongoConnection {
 		}
 	}
 	
-	public void getTFIDF(){
-		for(Review review : reviews){
-			for(String term : review.tf.keySet()){
-				review.tfidf.put(term, review.tf.get(term) * idf.get(term));
-				//System.out.println(term + ":" + review.tf.get(term) + " * " + idf.get(term));
-			}
-			
-		}
-	}
-	
-	public void compareCosSimilarity(){
+	public void compareCosSimilarityR(){
 		double cosine;
 		for(Review review : reviews){
 			double totalReview = 0;
@@ -129,6 +115,38 @@ public class MongoConnection {
 			System.out.println(cosine);
 		}
 	}
+	
+	public void compareCosSimilarityQ(){
+		setQuery();
+		double cosine;
+		for(Review review : reviews){
+			double totalReview = 0;
+			double totalQuery = 0;
+			double product = 0;
+			Set<String> union = new HashSet<String>();
+			union.addAll(query.tfidf.keySet());
+			union.addAll(review.tfidf.keySet());
+			for(String term : union){
+				double reviewTFIDF;
+				double queryTFIDF;
+				
+				if(!review.tfidf.containsKey(term)) reviewTFIDF = 0;
+				else reviewTFIDF = review.tfidf.get(term);
+				if(!query.tfidf.containsKey(term)) queryTFIDF = 0;
+				else queryTFIDF = query.tfidf.get(term);
+		
+				product += queryTFIDF * reviewTFIDF;
+				totalReview += reviewTFIDF * reviewTFIDF;
+				totalQuery += queryTFIDF * queryTFIDF;
+			}
+			totalReview = Math.sqrt(totalReview);
+			totalQuery = Math.sqrt(totalQuery);
+			cosine = product/(totalReview * totalQuery);
+			System.out.println(review.toJSON());
+			System.out.println(query.toJSON());
+			System.out.println(cosine);
+		}
+	} 
 	
 	/*
 	public void writeReviews() throws IOException {
