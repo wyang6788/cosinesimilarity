@@ -10,8 +10,8 @@ import io.github.sqlconnection.BaseConnection;
 public class MongoConnection {
 	public BaseConnection connection;
 	public HashSet<Review> reviews;
-	public Review randomReview;
 	public HashMap<String, Double> idf;
+	public Review randomReview;
 	public Review query;
 	
 	public MongoConnection(){
@@ -29,6 +29,8 @@ public class MongoConnection {
 	
 	public void setReviews(){
 		int firstSix = 0;
+		int random = ((int) Math.floor(Math.random() * 101)) % 6;
+		int counter = 0;
 		connection.setDBAndCollection("cs336", "unlabel_review");
 		DBCursor nosplit = connection.showRecords();
 		
@@ -43,9 +45,9 @@ public class MongoConnection {
 		
 		for(Review review : reviews){
 			randomReview = review;
-			break;
+			if(counter == random) break;
+			counter++;
 		}
-
 	}
 	
 	public void setQuery(){
@@ -80,7 +82,6 @@ public class MongoConnection {
 		for(String term : idf.keySet()){
 			double idfVal = Math.log10(numReviews/idf.get(term));
 			idf.put(term, idfVal);
-			//if(idfVal < 0) System.out.println(term + ":" + idfVal);
 		}
 	}
 	
@@ -102,7 +103,6 @@ public class MongoConnection {
 				if(!randomReview.tfidf.containsKey(term)) randomReviewTFIDF = 0;
 				else randomReviewTFIDF = randomReview.tfidf.get(term);
 		
-				//System.out.println(reviewTFIDF + " vs " + randomReviewTFIDF);
 				product += randomReviewTFIDF * reviewTFIDF;
 				totalReview += reviewTFIDF * reviewTFIDF;
 				totalRandomReview += randomReviewTFIDF * randomReviewTFIDF;
@@ -147,21 +147,4 @@ public class MongoConnection {
 			System.out.println(cosine);
 		}
 	} 
-	
-	/*
-	public void writeReviews() throws IOException {
-		BufferedWriter writer = null;
-		try {
-		    writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("Reviews.json"), "utf-8"));
-		    for(Review review : reviews.keySet()){
-				writer.write(review.toJSON() + "\n");
-			}
-		}
-		catch (IOException e){
-			e.printStackTrace();
-		}
-		finally{
-			if(writer != null) writer.close();
-		}
-	} */
 }

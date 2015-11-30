@@ -35,7 +35,6 @@ public class Review {
 	public void setTFIDF(HashMap<String, Double> idf){
 		for(String term : tf.keySet()){
 			tfidf.put(term, tf.get(term) * idf.get(term));
-			//System.out.println(term + ":" + review.tf.get(term) + " * " + idf.get(term));
 		}
 	}
 	
